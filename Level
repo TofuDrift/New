@@ -1,0 +1,35 @@
+import pygame
+from Player import Player
+from Enemy import Enemy
+from Timer import Timer
+
+class Level:
+    def __init__(self):
+        self.background = pygame.image.load("Images/Background/Desert.png")
+        self.display_surface = pygame.display.get_surface()
+        self.all_sprites = pygame.sprite.Group()
+        self.active = True
+        self.set_up()
+
+    def set_up(self):
+        self.player = Player((500, 250), self.all_sprites)
+        self.enemy = Enemy((0, 0), self.player.rect.center, self.all_sprites)
+        self.timer = Timer(10)
+
+    def get_active(self):
+        return self.active
+
+    def run(self, delta_time):
+        if self.enemy.rect.colliderect(self.player.hitBox_rect):
+            self.player.get_damage(10)
+
+
+        if self.player.current_health <= 0:
+            self.active = False
+
+        self.enemy.update_pos(self.player.hitBox_rect.center)
+        self.display_surface.blit(self.background, (0,0))
+        self.all_sprites.draw(self.display_surface)
+        self.all_sprites.update(delta_time)
+        pygame.draw.rect(self.display_surface,(255,0,0),self.player.hitBox_rect,2)
+        self.timer.update()
