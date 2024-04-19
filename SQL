@@ -1,0 +1,100 @@
+import sqlite3
+
+DBConnection = sqlite3.connect("Archive.db") # Creates a [name] file
+Cursor = DBConnection.cursor()
+
+with DBConnection:
+    Cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Users (
+            ID INTEGER PRIMARY KEY ,
+            Username TEXT NOT NULL,
+            Email Text NOT NULL,
+            Password TEXT NOT NULL
+            Balance INTEGERS NOT NULL,
+            Kills INTEGERS NOT NULL,
+            Characters TEXT NOT NULL,
+            Time REAL NOT NULL,
+            Theme TEXT NOT NULL
+            )
+        ''')
+
+
+def InsertNew(username, email, password, balance=0, kills=0, characters="True#False#False#False", time=0, theme="Red"):
+    with DBConnection:
+        Cursor.execute("INSERT INTO Users (Username, Email, Password) VALUES (?, ?, ?)",
+                       (username, email, password))
+        Cursor.execute("INSERT INTO Details (Balance, Kills, Characters, Time, Theme) VALUES (?, ?, ?, ?, ?)",
+                       (balance, kills, characters, time, theme))
+
+
+def Reset():
+    with DBConnection:
+        table_size = Cursor.execute("SELECT MAX(ID) FROM Users").fetchone()
+        maxsize = int(table_size[0])
+        for i in range(0, maxsize + 1):
+            Cursor.execute("DELETE FROM Users WHERE ID = ?", (i,))
+            Cursor.execute("DELETE FROM Details WHERE ID = ?", (i,))
+
+
+def Get_ID(email):
+    value = Cursor.execute("SELECT ID FROM Users WHERE Email == ?", (email,)).fetchone()
+    return str(value[0])
+
+
+def Get_Username(x):
+    value = Cursor.execute("SELECT Username FROM Users WHERE ID == ?", (x,)).fetchone()
+    return str(value[0])
+
+
+def Get_Balance(x):
+    value = Cursor.execute("SELECT Balance FROM Details WHERE ID == ?", (x,)).fetchone()
+    return str(value[0])
+
+
+def Check_Login(email, password):
+    with DBConnection:
+        value = Cursor.execute("SELECT ID FROM Users WHERE Email == ?", (email,)).fetchone()
+        value_2 = Cursor.execute(f"SELECT Password FROM Users WHERE ID == ?", (str(value[0]),)).fetchone()
+        return str(value_2[0]) == password
+
+
+def UsernameFind(Value):
+    value = Cursor.execute("SELECT ID FROM Users WHERE Username == ?", (Value,)).fetchone()
+    return bool(value)
+
+
+def EmailFind(Value):
+    value = Cursor.execute("SELECT ID FROM Users WHERE Email == ?", (Value,)).fetchone()
+    return bool(value)
+
+
+def PasswordFind(Value):
+    value = Cursor.execute("SELECT ID FROM Users WHERE Password == ?", (Value,)).fetchone()
+    return bool(value)
+
+
+def BalanceFind(Value):
+    value = Cursor.execute("SELECT ID FROM Users WHERE Balance == ?", (Value,)).fetchone()
+    return bool(value)
+
+
+def KillsFind(Value):
+    value = Cursor.execute("SELECT ID FROM Users WHERE Kills == ?", (Value,)).fetchone()
+    return bool(value)
+
+
+def CharactersFind(Value):
+    value = Cursor.execute("SELECT ID FROM Users WHERE Characters == ?", (Value,)).fetchone()
+    return bool(value)
+
+# Reset
+
+
+import hashlib
+import random as r
+
+def SelectTop10():
+    value = Cursor.execute("SELECT Username, Balance FROM Users, Details ORDER BY Balance DESC").fetchmany(10)
+    print(value)
+
+SelectTop10()
