@@ -1,1 +1,21 @@
+import pygame.time
+from Support import *
+
+class Timer():
+    def __init__(self, value):
+        self.display_surface = pygame.display.get_surface()
+        self.start_time = pygame.time.get_ticks()
+        self.total_seconds = value * 60
+        self.remaining_seconds = self.total_seconds
+        self.time = TextBox(775, 10, "Time Left", f"{self.remaining_seconds // 60:02d}:{self.remaining_seconds % 60:02d}", 35, "#000000")
+
+
+    def get_remaining_time(self):
+        return self.remaining_seconds
+
+    def update(self):
+        elapsed_time = pygame.time.get_ticks() - self.start_time
+        self.remaining_seconds = max(self.total_seconds - elapsed_time // 1000, 0)
+        self.time.update(f"{self.remaining_seconds // 60:02d}:{self.remaining_seconds % 60:02d}")
+        self.time.draw(self.display_surface)
 
