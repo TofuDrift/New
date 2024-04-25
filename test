@@ -1,0 +1,465 @@
+import pygame.time, sys, random as r
+from Support import *
+
+class MainGame:
+   def __init__(self, window_width, window_height):
+       pygame.init()  # Initialising pygame
+       # Setting up the game window
+       self.window_surface = pygame.display.set_mode((window_width, window_height))
+       pygame.display.set_caption('Game')  # Setting the window title
+       self.clock = pygame.time.Clock()  # Creating a clock object for controlling FPS
+       self.level = Level()  # Creating an instance of the Level class
+       self.state = "Playing"  # Setting initial game state to "Playing"
+
+
+       # Buttons for pause UI
+       self.resume_button = Button((window_width / 2) - 75, (window_height / 2) - 100, "Resume_Unselected",
+                                   "Resume_Selected")
+       self.return_button = Button((window_width / 2) - 75, (window_height / 2) + 100, "Return_Unselected",
+                                   "Return_Selected")
+       self.quit_button = Button((window_width / 2) - 75, (window_height / 2), "Quit_Unselected", "Quit_Selected")
+       self.pause_rect = pygame.Rect((window_width - 250) / 2, (window_height - 300) / 2, 250, 300)
+
+
+       # Results for game over
+       self.enemies_defeated = TextBox(400, (window_height / 2) - 100, "Number of enemies defeated", "", 20, "#FFFFFF")
+       self.time_survived = TextBox(400, (window_height / 2) - 50, "Survival Time", "", 20, "#FFFFFF")
+       self.total = TextBox(400, (window_height / 2), "Total", "0 δ", 20, "#FFFFFF")
+
+       self.profit = 0
+
+
+   def run(self):
+       while True:
+           delta_time = self.clock.tick() / 1000
+           for event in pygame.event.get():  # Handling events
+               mouse_pos = pygame.mouse.get_pos()  # Getting mouse position
+               keys = pygame.key.get_pressed()  # Getting pressed keys
+               if event.type == pygame.QUIT:  # If the user closes the window
+                   pygame.quit()  # Quit pygame
+                   sys.exit()  # Exit the program
+               if self.state == "Paused":  # If the game is paused
+                   if event.type == pygame.MOUSEBUTTONDOWN:  # If mouse button is clicked
+                       if self.quit_button.is_clicked(mouse_pos):  # If quit button is clicked
+                           pygame.quit()  # Quit pygame
+                           sys.exit()  # Exit the program
+                       elif self.resume_button.is_clicked(mouse_pos):  # If resume button is clicked
+                           self.state = "Playing"  # Set game state to "Playing"
+                       elif self.return_button.is_clicked(mouse_pos):  # If return button is clicked
+                           return  # Return to main menu
+
+
+               elif self.state == "Game Over":  # If the game is over
+                   if event.type == pygame.MOUSEBUTTONDOWN:  # If mouse button is clicked
+                       if self.return_button.is_clicked(mouse_pos):  # If return button is clicked
+                           return  # Return to main menu
+
+
+               if keys[pygame.K_ESCAPE]:  # If ESC key is pressed
+                   self.state = "Paused"  # Set game state to "Paused"
+
+
+           if self.state == "Playing":  # If the game is playing
+               self.level.run(delta_time)  # Run the game level
+
+
+               if not self.level.get_active():  # If the level is not active
+                   self.state = "Game Over"  # Set game state to "Game Over"
+
+
+           elif self.state == "Paused":  # If the game is paused
+               # Draw pause UI
+               pygame.draw.rect(self.window_surface, "#262626", self.pause_rect, 0, 25)
+               self.resume_button.draw(self.window_surface)
+               self.return_button.draw(self.window_surface)
+               self.quit_button.draw(self.window_surface)
+
+
+           elif self.state == "Game Over":  # If the game is over
+               # Draw game over UI
+               pygame.draw.rect(self.window_surface, "#262626", self.pause_rect, 0, 25)
+               x = self.level.player.enemies_defeated
+               self.enemies_defeated.update(str(x))
+               y = self.level.timer.total_seconds - self.level.timer.remaining_seconds
+               self.time_survived.update(f"{y // 60:02d}:{y % 60:02d}")
+               self.total.update(f"{str(x + y)} δ")
+               self.profit = x + y
+               self.enemies_defeated.draw(self.window_surface)
+               self.time_survived.draw(self.window_surface)
+               self.total.draw(self.window_surface)
+               self.return_button.draw(self.window_surface)
+
+
+           pygame.display.update()
+
+class Level:
+   def __init__(self):
+       # Loading background image
+       self.background = pygame.image.load("Images/Background/Desert.png")
+       # Getting display surface
+       self.display_surface = pygame.display.get_surface()
+       # Creating a group to hold all sprites
+       self.all_sprites = pygame.sprite.Group()
+       # Setting the level to active
+       self.active = True
+       # Setting up the level
+       self.set_up()
+
+
+   def set_up(self):
+       # Creating player object and adding it to all_sprites group
+       self.player = Player((500, 250), self.all_sprites)
+       # Creating enemy object and adding it to all_sprites group
+       self.enemy = Enemy((r.randint(0, 1000), r.randint(0,150)), self.player.rect.center, self.all_sprites)
+       # Creating timer object with 10 minute duration
+       self.timer = Timer(10)
+
+
+   def get_active(self):
+       # Return the active status of the level to game.py
+       return self.active
+
+
+   def run(self, delta_time):
+       # Checking collision between enemy and player
+       if self.enemy.rect.colliderect(self.player.hitBox_rect):
+           self.player.get_damage(10)  # Player gets damaged if colliding with enemy
+
+       if self.player.attack:
+           if self.enemy.rect.colliderect(self.player.attack_rect):
+               self.enemy.get_damage(100)
+           self.player.attack = False
+
+       # Checking if player's health is below or equal to zero
+       if self.player.current_health <= 0:
+           self.active = False  # Stops the level
+
+       if self.enemy.target_health <= 0:
+           self.enemy.kill()
+           self.player.enemies_defeated += 1
+           self.enemy = Enemy((r.randint(0, 1000), r.randint(0,150)), self.player.rect.center, self.all_sprites)
+
+       # Updating enemy's position based on player's position
+       self.enemy.update_pos(self.player.hitBox_rect.center)
+       # Drawing background image
+       self.display_surface.blit(self.background, (0, 0))
+       # Drawing all sprites on the display surface
+       self.all_sprites.draw(self.display_surface)
+       # Updating all sprites
+       self.all_sprites.update(delta_time)
+       # Drawing hitbox around the player
+       pygame.draw.rect(self.display_surface, (255, 0, 0), self.player.hitBox_rect, 2)
+       pygame.draw.rect(self.display_surface, (255, 0, 0), self.player.attack_rect, 2)
+       # Updating the timer
+       self.timer.update()
+
+class Player(pygame.sprite.Sprite):
+   def __init__(self, pos, group):
+       super().__init__(group)
+
+
+       # Initialize player attributes
+       self.animationArchive = None  # Stores animation frames
+       self.import_assets()  # Import player assets
+       self.status = 'Right'  # Initial status
+       self.frame_index = 0  # Initial frame index
+
+
+       # Set initial image and hitbox
+       self.image = self.animationArchive[self.status][self.frame_index]
+       self.rect = self.image.get_rect(center=pos)
+       self.hitBox_rect = pygame.Rect((600, 450), (32, 32))  # Hitbox dimensions
+       self.attack_rect = pygame.Rect((600, 450), (64, 64))
+
+
+       # Movement attributes
+       self.direction = pygame.math.Vector2()  # Direction vector
+       self.pos = pygame.math.Vector2(self.rect.center)  # Player position
+       self.speed = 150  # Movement speed
+
+
+       # Counters and timers
+       self.count = 0  # General counter
+       self.display_surface = pygame.display.get_surface()  # Display surface
+
+
+       # Health attributes
+       self.current_health = 100  # Current health
+       self.target_health = 100  # Target health
+       self.max_health = 100  # Maximum health
+       self.health_bar_length = 400  # Length of health bar
+       self.health_ratio = self.max_health / self.health_bar_length  # Health ratio
+       self.health_change_speed = 1  # Health change speed
+
+
+       # Cooldown attributes
+       self.cooldown_timer = 0  # Cooldown timer
+       self.cooldown_duration = 1  # Cooldown duration
+
+
+       # Attack attribute
+       self.attack = False  # Indicates if player is attacking
+
+
+       # Enemies defeated counter
+       self.enemies_defeated = 0  # Number of enemies defeated
+
+
+   def get_damage(self, amount):
+       # Check if player can take damage (cooldown)
+       if self.cooldown_timer <= 0:
+           # Reduce target health by the specified amount
+           if self.target_health > 0:
+               self.target_health -= amount
+           # Ensure health doesn't go below 0
+           if self.target_health < 0:
+               self.target_health = 0
+           # Start cooldown timer
+           self.cooldown_timer = self.cooldown_duration
+
+
+   def get_health(self, amount):
+       # Increase target health by the specified amount if it's below maximum
+       if self.target_health < self.max_health:
+           self.target_health += amount
+       # Ensure target health doesn't exceed maximum
+       if self.target_health > self.max_health:
+           self.target_health = self.max_health
+
+
+   def update_health(self):
+       # Initialize transition variables
+       transition_width = 0
+       transition_color = (255, 0, 0)
+
+
+       # Increase current health towards target health
+       if self.current_health < self.target_health:
+           self.current_health += self.health_change_speed
+           # Calculate transition width and colour for health increase
+           transition_width = int((self.target_health - self.current_health) / self.health_ratio)
+           transition_color = (0, 255, 0)
+
+
+       # Decrease current health towards target health
+       if self.current_health > self.target_health:
+           self.current_health -= self.health_change_speed
+           # Calculate transition width and colour for health decrease
+           transition_width = int((self.target_health - self.current_health) / self.health_ratio)
+           transition_color = (255, 255, 0)
+
+
+       # Calculate width of health bar based on current health
+       health_bar_width = int(self.current_health / self.health_ratio)
+       health_bar = pygame.Rect(10, 10, health_bar_width, 25)
+       # Create transition bar next to health bar
+       transition_bar = pygame.Rect(health_bar.right, 45, transition_width, 25)
+
+
+       # Draw health bar and transition bar on display surface
+       pygame.draw.rect(self.display_surface, (255, 0, 0), health_bar)  # Draw health bar
+       pygame.draw.rect(self.display_surface, transition_color, transition_bar)  # Draw transition bar
+       pygame.draw.rect(self.display_surface, (0, 0, 0), (10, 10, self.health_bar_length, 25), 2)  # Draw border
+
+
+   def import_assets(self):
+       # Dictionary to store animation frames for different actions
+       self.animationArchive = {
+           'Up': [], 'Up_Attack': [], 'Hurt_Up': [],
+           'Down': [], 'Down_Attack': [], 'Hurt_Down': [],
+           'Left': [], 'Left_Attack': [],
+           'Right': [], 'Right_Attack': [], 'Hurt_Right': [],
+           'Idle': [],
+           'Sleep': []
+       }
+
+
+       # Populate animationArchive with frames from respective folders
+       for frame in self.animationArchive:
+           full_path = 'Images/Sprites/Player/' + frame  # Path to folder containing frames
+           self.animationArchive[frame] = import_folder(full_path)  # Import frames
+
+
+   def animate(self, delta_time):
+       # If player is not moving
+       if self.direction.magnitude() == 0:
+       # Set frame index based on current status
+           if self.status == "Up":
+               self.frame_index = 3
+           elif self.status == "Down":
+               self.frame_index = 0
+           elif self.status == "Left":
+               self.frame_index = 1
+           elif self.status == "Right":
+               self.frame_index = 2
+           # Set image to idle animation frame
+           self.image = self.animationArchive["Idle"][int(self.frame_index)]
+       else:
+           # Increment frame index based on elapsed time
+           self.frame_index += 5 * delta_time
+           # Loop animation frames
+           if self.frame_index >= len(self.animationArchive[self.status]):
+               self.frame_index = 0
+           # Set image to current animation frame
+           self.image = self.animationArchive[self.status][int(self.frame_index)]
+
+
+       # Resize image to 100x100
+       self.image = resize(self.image, 100, 100)
+
+
+   def input(self):
+       # Get the state of all keyboard keys
+       keys = pygame.key.get_pressed()
+
+
+       # Handle vertical movement
+       if keys[pygame.K_UP] or keys[pygame.K_w]:
+           self.direction.y = -1
+           self.status = "Up"
+       elif keys[pygame.K_DOWN] or keys[pygame.K_s]:
+           self.direction.y = 1
+           self.status = "Down"
+       else:
+           self.direction.y = 0
+
+
+       # Handle horizontal movement
+       if keys[pygame.K_LEFT] or keys[pygame.K_a]:
+           self.direction.x = -1
+           self.status = "Left"
+       elif keys[pygame.K_RIGHT] or keys[pygame.K_d]:
+           self.direction.x = 1
+           self.status = "Right"
+       else:
+           self.direction.x = 0
+
+       for event in pygame.event.get():
+           if event.type == pygame.MOUSEBUTTONDOWN:
+               self.attack = True
+
+
+   def move(self, delta_time):
+       # Normalise direction vector if its magnitude is greater than 0
+       if self.direction.magnitude() > 0:
+           self.direction = self.direction.normalize()
+
+
+       # Move horizontally
+       self.pos.x += self.direction.x * self.speed * delta_time
+       self.rect.centerx = self.pos.x
+       self.hitBox_rect.centerx = self.pos.x + 25  # Adjust hitbox position
+       self.attack_rect.centerx = self.pos.x + 25
+
+       # Move vertically
+       self.pos.y += self.direction.y * self.speed * delta_time
+       self.rect.centery = self.pos.y
+       self.hitBox_rect.centery = self.pos.y + 25  # Adjust hitbox position
+       self.attack_rect.centery = self.pos.y + 25
+
+       # Check bounds for X coordinate
+       if self.pos.x <= 0:
+           self.pos.x = 0
+       elif self.pos.x >= 1000:
+           self.pos.x = 1000
+
+
+       # Check bounds for Y coordinate
+       if self.pos.y <= 0:
+           self.pos.y = 0
+       elif self.pos.y >= 500:
+           self.pos.y = 500
+
+
+   def update(self, delta_time):
+       # Update player's health display
+       self.update_health()
+       # Process player input
+       self.input()
+       # Update player's animation based on elapsed time
+       self.animate(delta_time)
+       # Move player based on current input and elapsed time
+       self.move(delta_time)
+
+
+       # Reduce cooldown timer if it's greater than 0
+       if self.cooldown_timer > 0:
+           self.cooldown_timer -= delta_time
+
+class Timer():
+   def __init__(self, value):
+       # Getting display surface
+       self.display_surface = pygame.display.get_surface()
+       # Storing start time
+       self.start_time = pygame.time.get_ticks()
+       # Converting minutes to seconds
+       self.total_seconds = value * 60
+       # Initialising remaining seconds
+       self.remaining_seconds = self.total_seconds
+       # Creating text box to display time
+       self.time = TextBox(775, 10, "Time Left", f"{self.remaining_seconds // 60:02d}:{self.remaining_seconds % 60:02d}", 35, "#000000")
+
+
+   # Function to get remaining time
+   def get_remaining_time(self):
+       return self.remaining_seconds
+
+
+   # Function to update timer
+   def update(self):
+       # Calculating elapsed time
+       elapsed_time = pygame.time.get_ticks() - self.start_time
+       # Calculating remaining seconds
+       self.remaining_seconds = max(self.total_seconds - elapsed_time // 1000, 0)
+       # Updating time text
+       self.time.update(f"{self.remaining_seconds // 60:02d}:{self.remaining_seconds % 60:02d}")
+       # Drawing time on display surface
+       self.time.draw(self.display_surface)
+
+class Enemy(pygame.sprite.Sprite):
+   def __init__(self, pos, player_pos, group):
+       super().__init__(group)
+       self.image = pygame.Surface((30, 30))  # Replace this with your actual enemy image
+       self.image.fill((255, 0, 0))  # Replace this with your desired colour or image
+       self.rect = self.image.get_rect()
+       self.rect.center = pos
+       self.direction = pygame.math.Vector2()
+       self.pos = pygame.math.Vector2(self.rect.center)
+       self.speed = 100
+       self.player_pos = player_pos
+
+       self.target_health = 100
+
+
+   def get_damage(self, amount):
+       # Reduce target health by the specified amount
+       if self.target_health > 0:
+           self.target_health -= amount
+       # Ensure health doesn't go below 0
+       if self.target_health < 0:
+           self.target_health = 0
+
+   def update_pos(self, player_pos):
+       self.player_pos = player_pos
+
+
+   def move(self, delta_time):
+       # Calculate direction vector from enemy to player
+       direction_to_player = pygame.math.Vector2(self.player_pos) - self.pos
+
+
+       # Normalise the direction vector
+       if direction_to_player.length() > 0:
+           self.direction = direction_to_player.normalize()
+
+
+       # Update enemy's position based on direction vector and speed
+       self.pos += self.direction * self.speed * delta_time
+       self.rect.center = self.pos
+
+
+   def update(self, delta_time):
+       self.move(delta_time)
+
+game = MainGame(1000, 500)
+game.run()
