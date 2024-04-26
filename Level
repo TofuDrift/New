@@ -1,35 +1,66 @@
 import pygame
-from Player import Player
-from Enemy import Enemy
-from Timer import Timer
+from Player import Player  # Importing Player class from Player module
+from Enemy import Enemy  # Importing Enemy class from Enemy module
+from Timer import Timer  # Importing Timer class from Timer module
+import random as r
+
 
 class Level:
     def __init__(self):
+        # Loading background image
         self.background = pygame.image.load("Images/Background/Desert.png")
+        # Getting display surface
         self.display_surface = pygame.display.get_surface()
+        # Creating a group to hold all sprites
         self.all_sprites = pygame.sprite.Group()
+        # Setting the level to active
         self.active = True
+        # Setting up the level
         self.set_up()
 
     def set_up(self):
+        # Creating player object and adding it to all_sprites group
         self.player = Player((500, 250), self.all_sprites)
-        self.enemy = Enemy((0, 0), self.player.rect.center, self.all_sprites)
+        # Creating enemy object and adding it to all_sprites group
+        self.enemy = Enemy((r.randint(0, 1000), r.randint(0, 500)), self.player.rect.center, self.all_sprites)
+        # Creating timer object with 10 minute duration
         self.timer = Timer(10)
 
     def get_active(self):
+        # Return the active status of the level to game.py
         return self.active
 
     def run(self, delta_time):
+        # Checking collision between enemy and player
         if self.enemy.rect.colliderect(self.player.hitBox_rect):
-            self.player.get_damage(10)
+            self.player.get_damage(10)  # Player gets damaged if colliding with enemy
 
+        # Checks if the player is attacking
+        if self.player.attack:
+            if self.enemy.rect.colliderect(self.player.attack_rect):  # If the enemy is within attack zone
+                self.enemy.get_damage(100)  # Deals 100 damage
+            self.player.attack = False  # Sets attack to false
 
+        # Checking if player's health is below or equal to zero
         if self.player.current_health <= 0:
-            self.active = False
+            self.active = False  # Stops the level
 
+        if self.enemy.target_health <= 0:
+            self.enemy.kill()  # Deletes the enemy
+            self.player.enemies_defeated += 1  # Add count to the variable from player
+            # Generates new enemy at random position
+            self.enemy = Enemy((r.randint(0, 1000), r.randint(0, 150)), self.player.rect.center, self.all_sprites)
+
+        # Updating enemy's position based on player's position
         self.enemy.update_pos(self.player.hitBox_rect.center)
-        self.display_surface.blit(self.background, (0,0))
+        # Drawing background image
+        self.display_surface.blit(self.background, (0, 0))
+        # Drawing all sprites on the display surface
         self.all_sprites.draw(self.display_surface)
+        # Updating all sprites
         self.all_sprites.update(delta_time)
-        pygame.draw.rect(self.display_surface,(255,0,0),self.player.hitBox_rect,2)
+        # Drawing attack / hitbox around the player
+        pygame.draw.rect(self.display_surface, (255, 0, 0), self.player.hitBox_rect, 2)
+        pygame.draw.rect(self.display_surface, (255, 0, 0), self.player.attack_rect, 2)
+        # Updating the timer
         self.timer.update()
