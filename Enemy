@@ -1,15 +1,27 @@
 from Support import *
+
+
 class Enemy(pygame.sprite.Sprite):
     def __init__(self, pos, player_pos, group):
         super().__init__(group)
         self.image = pygame.Surface((30, 30))  # Replace this with your actual enemy image
-        self.image.fill((255, 0, 0))  # Replace this with your desired color or image
+        self.image.fill((255, 0, 0))  # Replace this with your desired colour or image
         self.rect = self.image.get_rect()
         self.rect.center = pos
         self.direction = pygame.math.Vector2()
         self.pos = pygame.math.Vector2(self.rect.center)
-        self.speed = 50
+        self.speed = 100
         self.player_pos = player_pos
+
+        self.target_health = 100
+
+    def get_damage(self, amount):
+        # Reduce target health by the specified amount
+        if self.target_health > 0:
+            self.target_health -= amount
+        # Ensure health doesn't go below 0
+        if self.target_health < 0:
+            self.target_health = 0
 
     def update_pos(self, player_pos):
         self.player_pos = player_pos
@@ -18,25 +30,13 @@ class Enemy(pygame.sprite.Sprite):
         # Calculate direction vector from enemy to player
         direction_to_player = pygame.math.Vector2(self.player_pos) - self.pos
 
-        # Normalize the direction vector
+        # Normalise the direction vector
         if direction_to_player.length() > 0:
             self.direction = direction_to_player.normalize()
 
         # Update enemy's position based on direction vector and speed
         self.pos += self.direction * self.speed * delta_time
         self.rect.center = self.pos
-
-        # Bound Check X
-        if self.pos.x <= 0:
-            self.pos.x = 0
-        elif self.pos.x >= 1000:
-            self.pos.x = 1000
-
-        # Bound Check Y
-        if self.pos.y <= 0:
-            self.pos.y = 0
-        elif self.pos.y >= 500:
-            self.pos.y = 500
 
     def update(self, delta_time):
         self.move(delta_time)
