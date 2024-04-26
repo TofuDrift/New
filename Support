@@ -2,6 +2,7 @@ from os import walk
 
 import pygame, string
 
+
 class Button:
     def __init__(self, button_x, button_y, image1, image2):
         self.image1 = imageload(image1, "Unselected")
@@ -11,19 +12,20 @@ class Button:
         self.rect.left, self.rect.centery = button_x, button_y
         self.isHover = False
 
-    def draw(self, screen):
-        if self.isHover:
-            self.image = self.image2
-        else:
-            self.image = self.image1
-        mousepos = pygame.mouse.get_pos()
-        if self.rect.collidepoint(mousepos):
+    def draw(self, screen):  # Checks if the mouse is hovering over the button
+        if self.rect.collidepoint(pygame.mouse.get_pos()):
             self.isHover = True
         else:
             self.isHover = False
-        screen.blit(self.image, self.rect)
 
-    def is_clicked(self, pos):
+        if self.isHover:  # Changes image state
+            self.image = self.image2  # Image state as selected
+        else:
+            self.image = self.image1  # Image state as unselected
+
+        screen.blit(self.image, self.rect)  # Draws the button
+
+    def is_clicked(self, pos):  # Returns true if the mouse/cursor is over the button
         return self.rect.collidepoint(pos)
 
 
@@ -53,88 +55,87 @@ class InputBox:
 
     def reset(self):
         self.error_active = False
-        self.text = ""
-        self.store_text = ""
+        self.text, self.store_text = "", ""
 
     def draw(self, screen):
+        # Set characters font to 20 as default
         self.font = pygame.font.Font(None, 20)
         label = self.font.render(self.label, False, "#FFFFFF")
         text = self.font.render(self.text, False, "#FFFFFF")
+
         if self.error_active:
             error = self.font.render(self.error_message, True, "#FF0000")
             # pygame.draw.rect(screen, '#FF0000', self.error_rect, 2)
-            screen.blit(error, self.error_textbox_rect)
+            screen.blit(error, self.error_textbox_rect)  # Display error message
         else:
             self.error_message = ""
 
-        if not self.activated:
+        if not self.activated:  # Checks if the input box is clicked on
+            # Border default to white
             pygame.draw.rect(screen, '#FFFFFF', self.textbox_rect, 2)
         else:
+            # Border set as green to indicate being active
             pygame.draw.rect(screen, '#00FF00', self.textbox_rect, 2)
 
-        screen.blit(text, self.rect_text)
-        screen.blit(label, self.rect_label)
+        screen.blit(text, self.rect_text)  # Draws the input box
+        screen.blit(label, self.rect_label)  # Draws the label for the input box
 
     def event_handler(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            if self.textbox_rect.collidepoint(event.pos):
+        if event.type == pygame.MOUSEBUTTONDOWN:  # Detects mouse click
+            if self.textbox_rect.collidepoint(event.pos):  # Checks if mouse was over input box
                 self.activated = True
             else:
                 self.activated = False
 
         if self.activated:
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_BACKSPACE:
+            if event.type == pygame.KEYDOWN:  # Detects key presses
+                if event.key == pygame.K_BACKSPACE:  # Removes characters
                     self.text = self.text[:-1]
                     if self.masked:
                         self.store_text = self.store_text[:-1]
                 else:
                     if event.unicode in self.acceptable:
                         if self.masked:
-                            self.store_text += event.unicode
-                            self.text += "*"
+                            self.store_text += event.unicode  # Store actual input
+                            self.text += "*"  # Display asterisk
                         else:
-                            self.text += event.unicode
+                            self.text += event.unicode  # Concatenates onto string
 
 
 class TextBox:
-    def __init__(self, x, y, label, value, size, colour,type = 1):
-        if size is None:
-            self.size = 24
-        else:
-            self.size = size
-        if colour is None:
-            self.colour = "#000000"
-        else:
-            self.colour = colour
+    def __init__(self, x, y, label, value, size=24, colour="#000000"):
+        self.size = size
+        self.colour = colour
         self.rect = pygame.Rect(x, y, 10, 10)
-        self.label = f"{label}: "
+        self.label = label
         self.value = value
-        self.text = self.label + self.value
-        self.type = type
+        if self.label == "Balance":
+            self.text = f"{self.label}: {value} δ"
+        else:
+            self.text = f"{self.label}: {value}"
 
     def draw(self, screen):
+        # Set font (Default to Arial) and character size
         self.font = pygame.font.Font(None, self.size)
-        text = self.font.render(self.text, False, self.colour)
-        if self.type == 2:
-            textrect = text.get_rect(topleft= self.rect.topleft)
-            pygame.draw.rect(screen,(0,0,0),textrect,2,25)
-        screen.blit(text, self.rect)
-
-
-
+        text = self.font.render(self.text, False, self.colour)  # Set text colour
+        screen.blit(text, self.rect)  # Render text in/at rect position
 
     def update(self, value):
         self.value = value
-        self.text = self.label + self.value
+        if self.label == "Balance" or self.label == "Total":
+            self.text = f"{self.label}: {value} δ"
+        else:
+            self.text = f"{self.label}: {value}"
+
 
 def import_folder(path):
     surface_list = []
 
     for folder_name, sub_folder_name, img_file in walk(path):
-        for image in img_file:
+        for image in img_file:  # Loops through every image in file
             if image.endswith('.png'):
                 full_path = path + '/' + image
+                # Changes pixel format of an image including per pixel alphas
                 image_surface = pygame.image.load(full_path).convert_alpha()
                 surface_list.append(image_surface)
 
@@ -145,16 +146,8 @@ def resize(image, width, height):
     return pygame.transform.scale(image, (width, height))
 
 
-def xflip(image, xbool):
-    if xbool == False:
-        return pygame.transform.flip(image, False, False)
-    elif xbool == True:
-        return pygame.transform.flip(image, True, False)
-
-
 def imageload(image, type):
     if ".png" not in image:
-
         return pygame.image.load(f"Images\\UI Buttons\\{type} Buttons\\{image}.png")
     else:
         return pygame.image.load(f"Images\\UI Buttons\\{type} Buttons\\{image}")
@@ -166,9 +159,11 @@ def check_password(password):
     special = False
     errorMessages = []
 
+    # Checks for upper cases in password
     for i in password:
         if i.isupper():
             upper = True
+    # Checks for
     for i in password:
         if i.isalnum():
             num = True
