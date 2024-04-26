@@ -1,17 +1,20 @@
-import sqlite3
+import sqlite3, hashlib
+import random as r
 
-DBConnection = sqlite3.connect("Archive.db") # Creates a [name] file
+# Establishing connection to the SQLite database
+DBConnection = sqlite3.connect("Archive.db")
 Cursor = DBConnection.cursor()
 
+# Creating Users table if it doesn't exist
 with DBConnection:
     Cursor.execute('''
         CREATE TABLE IF NOT EXISTS Users (
-            ID INTEGER PRIMARY KEY ,
+            ID INTEGER PRIMARY KEY,
             Username TEXT NOT NULL,
-            Email Text NOT NULL,
-            Password TEXT NOT NULL
-            Balance INTEGERS NOT NULL,
-            Kills INTEGERS NOT NULL,
+            Email TEXT NOT NULL,
+            Password TEXT NOT NULL,
+            Balance INTEGER NOT NULL,
+            Kills INTEGER NOT NULL,
             Characters TEXT NOT NULL,
             Time REAL NOT NULL,
             Theme TEXT NOT NULL
@@ -19,38 +22,43 @@ with DBConnection:
         ''')
 
 
-def InsertNew(username, email, password, balance=0, kills=0, characters="True#False#False#False", time=0, theme="Red"):
+# Function to insert new user into the database
+def InsertNew(username, email, password, balance=0, kills=0, characters="True#False#False#False", time=0.0,
+              theme="Red"):
     with DBConnection:
-        Cursor.execute("INSERT INTO Users (Username, Email, Password) VALUES (?, ?, ?)",
-                       (username, email, password))
-        Cursor.execute("INSERT INTO Details (Balance, Kills, Characters, Time, Theme) VALUES (?, ?, ?, ?, ?)",
-                       (balance, kills, characters, time, theme))
+        Cursor.execute("INSERT INTO Users (Username, Email, Password, Balance, Kills, Characters, Time, Theme) VALUES "
+                       "(?, ?, ?, ?, ?, ?, ?, ?)",
+                       (username, email, password, balance, kills, characters, time, theme))
 
 
+# Function to reset the database
 def Reset():
     with DBConnection:
         table_size = Cursor.execute("SELECT MAX(ID) FROM Users").fetchone()
         maxsize = int(table_size[0])
         for i in range(0, maxsize + 1):
             Cursor.execute("DELETE FROM Users WHERE ID = ?", (i,))
-            Cursor.execute("DELETE FROM Details WHERE ID = ?", (i,))
 
 
+# Function to get user ID from email
 def Get_ID(email):
     value = Cursor.execute("SELECT ID FROM Users WHERE Email == ?", (email,)).fetchone()
     return str(value[0])
 
 
+# Function to get username from ID
 def Get_Username(x):
     value = Cursor.execute("SELECT Username FROM Users WHERE ID == ?", (x,)).fetchone()
     return str(value[0])
 
 
+# Function to get user balance from ID
 def Get_Balance(x):
-    value = Cursor.execute("SELECT Balance FROM Details WHERE ID == ?", (x,)).fetchone()
+    value = Cursor.execute("SELECT Balance FROM Users WHERE ID == ?", (x,)).fetchone()
     return str(value[0])
 
 
+# Function to check login credentials
 def Check_Login(email, password):
     with DBConnection:
         value = Cursor.execute("SELECT ID FROM Users WHERE Email == ?", (email,)).fetchone()
@@ -58,43 +66,76 @@ def Check_Login(email, password):
         return str(value_2[0]) == password
 
 
+# Function to check if username exists
 def UsernameFind(Value):
     value = Cursor.execute("SELECT ID FROM Users WHERE Username == ?", (Value,)).fetchone()
     return bool(value)
 
 
+# Function to check if email exists
 def EmailFind(Value):
     value = Cursor.execute("SELECT ID FROM Users WHERE Email == ?", (Value,)).fetchone()
     return bool(value)
 
 
+# Function to check if password exists
 def PasswordFind(Value):
     value = Cursor.execute("SELECT ID FROM Users WHERE Password == ?", (Value,)).fetchone()
     return bool(value)
 
 
-def BalanceFind(Value):
-    value = Cursor.execute("SELECT ID FROM Users WHERE Balance == ?", (Value,)).fetchone()
-    return bool(value)
+# Function to change password
+def SwapPassword(ID, Value):
+    with DBConnection:
+        Cursor.execute(f"UPDATE Users SET Password = ? WHERE ID == ?", (Value, ID,))
 
 
-def KillsFind(Value):
-    value = Cursor.execute("SELECT ID FROM Users WHERE Kills == ?", (Value,)).fetchone()
-    return bool(value)
+def SwapBalance(ID, Value):
+    Value += int(Get_Balance(ID))
+    with DBConnection:
+        Cursor.execute(f"UPDATE Users SET Balance = ? WHERE ID == ?", (Value, ID,))
 
 
+def SwapKills(ID, Value):
+    Value += int(Get_Kills(ID))
+    with DBConnection:
+        Cursor.execute(f"UPDATE Users SET Kills = ? WHERE ID == ?", (Value, ID,))
+
+
+# Function to check if kills exist
+def Get_Kills(Value):
+    Value = Cursor.execute("SELECT Kills FROM Users WHERE ID == ?", (Value,)).fetchone()
+    return str(Value[0])
+
+
+# Function to check if characters exist
 def CharactersFind(Value):
     value = Cursor.execute("SELECT ID FROM Users WHERE Characters == ?", (Value,)).fetchone()
     return bool(value)
 
-# Reset
+
+# Function to generate user accounts
+def generate_account(x):
+    salt = "5gz"
+    password = "HelloWorld!12"
+    for i in range(x):
+        database_password = password + f"{i}" + salt
+        hashed = hashlib.md5(database_password.encode()).hexdigest()
+        InsertNew(f"Bot_{i}", f"bot{i}@gmail.com", hashed, r.randint(100, 1000), r.randint(0, 100),
+                  "True#False#False#False", (r.randint(0, 600)) / 60)
 
 
-import hashlib
-import random as r
+# Function to select top 10 users based on a specific attribute
+def SelectTop10(type):
+    if type == "Balance":
+        value = Cursor.execute("SELECT Username, Balance FROM Users ORDER BY Balance DESC").fetchmany(10)
+    elif type == "Kills":
+        value = Cursor.execute("SELECT Username, Kills FROM Users ORDER BY Kills DESC").fetchmany(10)
+    elif type == "Time":
+        value = Cursor.execute("SELECT Username, Time FROM Users ORDER BY Time DESC").fetchmany(10)
+    else:
+        value = None
+    return value
 
-def SelectTop10():
-    value = Cursor.execute("SELECT Username, Balance FROM Users, Details ORDER BY Balance DESC").fetchmany(10)
-    print(value)
-
-SelectTop10()
+# Reset()
+# generate_account(30)
