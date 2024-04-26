@@ -1,478 +1,430 @@
 import sys, hashlib
 
-
 from SQL import *
 from Game import MainGame
 from Support import *
 
 
-
-
 # Function to handle different menu events based on the mode_event
 def handle_menu_event(mode_event):
-   # Getting mouse position
-   mouse_pos = pygame.mouse.get_pos()
+    # Getting mouse position
+    mouse_pos = pygame.mouse.get_pos()
 
+    # Handling different modes
+    if mode_event == -1:  # Game
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if quit_button.is_clicked(mouse_pos):
+                pygame.quit()
+                sys.exit()
+        return -1
 
-   # Handling different modes
-   if mode_event == -1:  # Game
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if quit_button.is_clicked(mouse_pos):
-               pygame.quit()
-               sys.exit()
-       return -1
+    elif mode_event == 0:  # Menu
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if quit_button.is_clicked(mouse_pos):
+                pygame.quit()
+                sys.exit()
+            elif play_button.is_clicked(mouse_pos):
+                return 1
+            elif leaderboards_button.is_clicked(mouse_pos):
+                return 2
+            elif options_button.is_clicked(mouse_pos):
+                return 3
+        return 0
 
+    elif mode_event == 1:  # Play
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if return_button.is_clicked(mouse_pos):
+                return 0
+            elif play_button.is_clicked(mouse_pos):
+                return -1
+        return 1
 
-   elif mode_event == 0:  # Menu
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if quit_button.is_clicked(mouse_pos):
-               pygame.quit()
-               sys.exit()
-           elif play_button.is_clicked(mouse_pos):
-               return 1
-           elif leaderboards_button.is_clicked(mouse_pos):
-               return 2
-           elif options_button.is_clicked(mouse_pos):
-               return 3
-       return 0
+    elif mode_event == 2:  # Leaderboards
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if return_button.is_clicked(mouse_pos):
+                return 0
+        return 2
 
+    elif mode_event == 3:  # Option
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if return_button.is_clicked(mouse_pos):
+                return 0
+            elif register_button.is_clicked(mouse_pos):
+                return 4
+            elif login_button.is_clicked(mouse_pos):
+                return 5
+            elif reset_password.is_clicked(mouse_pos):
+                return 6
 
-   elif mode_event == 1:  # Play
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if return_button.is_clicked(mouse_pos):
-               return 0
-           elif play_button.is_clicked(mouse_pos):
-               return -1
-       return 1
+        return 3
 
+    elif mode_event == 4:  # Register
+        # Handling input events for registration
+        email_register.event_handler(event)
+        username.event_handler(event)
+        password_1_register.event_handler(event)
+        password_2_register.event_handler(event)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if return_button.is_clicked(mouse_pos):  # Resets the input box and returns to option ui
+                email_register.reset()
+                username.reset()
+                password_1_register.reset()
+                password_2_register.reset()
+                return 3
+            elif submit_button.is_clicked(mouse_pos):
+                # Checking email validity
+                if email_register.text == "":
+                    email_register.error_active = True
+                    email_register.error("Please enter email.")  # Updates error message
+                else:
+                    if email_register.text.endswith("@gmail.com"):
+                        if EmailFind(email_register.text):
+                            email_register.error_active = True
+                            email_register.error("Email already exists.")
+                        else:
+                            email_register.error("")  # Sets error message to blank if nothing is wrong
+                    else:
+                        email_register.error_active = True
+                        email_register.error("Email does not contain '@gmail.com'")
 
-   elif mode_event == 2:  # Leaderboards
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if return_button.is_clicked(mouse_pos):
-               return 0
-       return
+                # Checking username validity
+                if username.text == "":
+                    username.error_active = True
+                    username.error("Please enter username.")
+                else:
+                    username.error("")
 
+                # Checking password validity
+                check_one = False
+                if password_1_register.store_text == "":
+                    password_1_register.error_active = True
+                    password_1_register.error("Please enter password.")
+                else:
+                    password_1_register.error("")
+                    check_one = True
 
-   elif mode_event == 3:  # Option
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if return_button.is_clicked(mouse_pos):
-               return 0
-           elif register_button.is_clicked(mouse_pos):
-               return 4
-           elif login_button.is_clicked(mouse_pos):
-               return 5
-           elif reset_password.is_clicked(mouse_pos):
-               return 6
+                check_two = False
+                if password_2_register.store_text == "":
+                    password_2_register.error_active = True
+                    password_2_register.error("Please enter password.")
+                else:
+                    password_2_register.error("")
+                    check_two = True
 
+                if check_one and check_two:  # Checks if the first two phases passed
+                    # Checks if the password matches
+                    if password_1_register.store_text == password_2_register.store_text:
+                        # Validating password (in support.py)
+                        outcome, errorMessage = check_password(password_1_register.store_text)
+                        if (password_1_register.store_text == password_2_register.store_text) and outcome:
+                            salt = "5gz"  # Special Key
+                            database_password = password_1_register.store_text + salt
+                            hashed = hashlib.md5(database_password.encode()).hexdigest()  # Encryption
+                            # Adds new details to SQL database
+                            InsertNew(username.text, email_register.text, hashed)
+                            # Resets all input boxes and returns to option ui
+                            email_register.reset()
+                            username.reset()
+                            password_1_register.reset()
+                            password_2_register.reset()
+                            return 3
+                        else:
+                            txt = ""
+                            for i in errorMessage:
+                                txt += i + "\n"  # Adds new line for each error
+                            password_1_register.error_active = True
+                            password_1_register.error(txt)
+                    else:
+                        password_1_register.error_active = True
+                        password_1_register.error("Passwords do not match.")
+        return 4
 
-       return 3
+    elif mode_event == 5:  # Login
+        # Handling input events for login
+        email_login.event_handler(event)
+        password_login.event_handler(event)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if return_button.is_clicked(mouse_pos):
+                email_login.reset()
+                password_login.reset()
+                return 3
+            elif submit_button.is_clicked(mouse_pos):
+                check_one = False
+                if email_login.text == "":
+                    email_login.error_active = True
+                    email_login.error("Please enter email.")
+                else:
+                    email_login.error("")
+                    if email_login.text.endswith("@gmail.com"):
+                        if EmailFind(email_login.text):  # Checks if email is in database
+                            email_login.error("")
+                            check_one = True
+                        else:
+                            email_login.error_active = True
+                            email_login.error("Email does not exist.")
+                    else:
+                        email_login.error_active = True
+                        email_login.error("Email does not contain '@gmail.com'")
 
+                check_two = False
+                if password_login.store_text == "":
+                    password_login.error_active = True
+                    password_login.error("Please enter password.")
+                else:
+                    password_login.error("")
+                    check_two = True
 
-   elif mode_event == 4:  # Register
-       # Handling input events for registration
-       email_register.event_handler(event)
-       username.event_handler(event)
-       password_1_register.event_handler(event)
-       password_2_register.event_handler(event)
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if return_button.is_clicked(mouse_pos):  # Resets the input box and returns to option ui
-               email_register.reset()
-               username.reset()
-               password_1_register.reset()
-               password_2_register.reset()
-               return 3
-           elif submit_button.is_clicked(mouse_pos):
-               # Checking email validity
-               if email_register.text == "":
-                   email_register.error_active = True
-                   email_register.error("Please enter email.")  # Updates error message
-               else:
-                   if email_register.text.endswith("@gmail.com"):
-                       if EmailFind(email_register.text):
-                           email_register.error_active = True
-                           email_register.error("Email already exists.")
-                       else:
-                           email_register.error("")  # Sets error message to blank if nothing is wrong
-                   else:
-                       email_register.error_active = True
-                       email_register.error("Email does not contain '@gmail.com'")
+                if check_one and check_two:
+                    salt = "5gz"
+                    database_password = password_login.store_text + salt
+                    hashed = hashlib.md5(database_password.encode()).hexdigest()
+                    if Check_Login(email_login.text, hashed):  # Checks if the password matches with encrypted password
+                        return "Valid"
+                    else:
+                        email_login.error_active = True
+                        email_login.error("Password is incorrect.")
 
+        return 5
 
-               # Checking username validity
-               if username.text == "":
-                   username.error_active = True
-                   username.error("Please enter username.")
-               else:
-                   username.error("")
+    elif mode_event == 6:  # Reset Password
+        # Handling input events for password reset
+        email.event_handler(event)
+        old_password.event_handler(event)
+        new_password.event_handler(event)
+        confirm_password.event_handler(event)
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if return_button.is_clicked(mouse_pos):
+                # Resets all input boxes and returns to option ui
+                email.reset()
+                old_password.reset()
+                new_password.reset()
+                confirm_password.reset()
+                return 3
+            elif submit_button.is_clicked(mouse_pos):
+                check_one = False
+                # Checking email validity
+                if email.text == "":
+                    email.error_active = True
+                    email.error("Please enter email.")  # Updates error message
+                else:
+                    if email.text.endswith("@gmail.com"):
+                        if EmailFind(email.text):
+                            email.error("")
+                            check_one = True
+                        else:
+                            email.error_active = True
+                            email.error("Email does not exist.")
+                    else:
+                        email.error_active = True
+                        email.error("Email does not contain '@gmail.com'")
 
+                check_two = False
+                if old_password.store_text == "":
+                    old_password.error_active = True
+                    old_password.error("Please enter password.")
+                else:
+                    old_password.error("")
+                    check_two = True
 
-               # Checking password validity
-               check_one = False
-               if password_1_register.store_text == "":
-                   password_1_register.error_active = True
-                   password_1_register.error("Please enter password.")
-               else:
-                   password_1_register.error("")
-                   check_one = True
+                check_three = False
+                if check_one and check_two:  # Checks if the old password matches in the database
+                    salt = "5gz"
+                    database_password = old_password.store_text + salt
+                    hashed = hashlib.md5(database_password.encode()).hexdigest()
+                    if Check_Login(email.text, hashed):
+                        email.error("")
+                        check_three = True
+                    else:
+                        email.error_active = True
+                        email.error("Password is incorrect.")
 
+                if check_three:
+                    outcome, errorMessage = check_password(new_password.store_text)
+                    if (new_password.store_text == confirm_password.store_text) and outcome:
+                        new_password.error("")
+                        confirm_password.error("")
+                        salt = "5gz"
+                        database_password = new_password.store_text + salt
+                        hashed = hashlib.md5(database_password.encode()).hexdigest()
+                        SwapPassword(Get_ID(email.text), hashed)
+                        # Resets all input boxes and returns to option ui
+                        email.reset()
+                        old_password.reset()
+                        new_password.reset()
+                        confirm_password.reset()
+                        return 3
+                    else:
+                        if not outcome:
+                            txt = ""
+                            for i in errorMessage:
+                                txt += i + "\n"  # Adds new line for each error
+                            new_password.error_active = True
+                            new_password.error(txt)
+                        else:
+                            confirm_password.error_active = True
+                            confirm_password.error("Password does not match.")
 
-               check_two = False
-               if password_2_register.store_text == "":
-                   password_2_register.error_active = True
-                   password_2_register.error("Please enter password.")
-               else:
-                   password_2_register.error("")
-                   check_two = True
-
-
-               if check_one and check_two:  # Checks if the first two phases passed
-                   # Checks if the password matches
-                   if password_1_register.store_text == password_2_register.store_text:
-                       # Validating password (in support.py)
-                       outcome, errorMessage = check_password(password_1_register.store_text)
-                       if (password_1_register.store_text == password_2_register.store_text) and outcome:
-                           salt = "5gz"  # Special Key
-                           database_password = password_1_register.store_text + salt
-                           hashed = hashlib.md5(database_password.encode()).hexdigest()  # Encryption
-                           # Adds new details to SQL database
-                           InsertNew(username.text, email_register.text, hashed)
-                           # Resets all input boxes and returns to option ui
-                           email_register.reset()
-                           username.reset()
-                           password_1_register.reset()
-                           password_2_register.reset()
-                           return 3
-                       else:
-                           txt = ""
-                           for i in errorMessage:
-                               txt += i + "\n"  # Adds new line for each error
-                           password_1_register.error_active = True
-                           password_1_register.error(txt)
-                   else:
-                       password_1_register.error_active = True
-                       password_1_register.error("Passwords do not match.")
-       return 4
-
-
-   elif mode_event == 5:  # Login
-       # Handling input events for login
-       email_login.event_handler(event)
-       password_login.event_handler(event)
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if return_button.is_clicked(mouse_pos):
-               email_login.reset()
-               password_login.reset()
-               return 3
-           elif submit_button.is_clicked(mouse_pos):
-               check_one = False
-               if email_login.text == "":
-                   email_login.error_active = True
-                   email_login.error("Please enter email.")
-               else:
-                   email_login.error("")
-                   if email_login.text.endswith("@gmail.com"):
-                       if EmailFind(email_login.text):  # Checks if email is in database
-                           email_login.error("")
-                           check_one = True
-                       else:
-                           email_login.error_active = True
-                           email_login.error("Email does not exist.")
-                   else:
-                       email_login.error_active = True
-                       email_login.error("Email does not contain '@gmail.com'")
-
-
-               check_two = False
-               if password_login.store_text == "":
-                   password_login.error_active = True
-                   password_login.error("Please enter password.")
-               else:
-                   password_login.error("")
-                   check_two = True
-
-
-               if check_one and check_two:
-                   salt = "5gz"
-                   database_password = password_login.store_text + salt
-                   hashed = hashlib.md5(database_password.encode()).hexdigest()
-                   if Check_Login(email_login.text, hashed):  # Checks if the password matches with encrypted password
-                       return "Valid"
-                   else:
-                       email_login.error_active = True
-                       email_login.error("Password is incorrect.")
-
-
-       return 5
-
-
-   elif mode_event == 6:  # Reset Password
-       # Handling input events for password reset
-       email.event_handler(event)
-       old_password.event_handler(event)
-       new_password.event_handler(event)
-       confirm_password.event_handler(event)
-       if event.type == pygame.MOUSEBUTTONDOWN:
-           if return_button.is_clicked(mouse_pos):
-               # Resets all input boxes and returns to option ui
-               email.reset()
-               old_password.reset()
-               new_password.reset()
-               confirm_password.reset()
-               return 3
-           elif submit_button.is_clicked(mouse_pos):
-               check_one = False
-               # Checking email validity
-               if email.text == "":
-                   email.error_active = True
-                   email.error("Please enter email.")  # Updates error message
-               else:
-                   if email.text.endswith("@gmail.com"):
-                       if EmailFind(email.text):
-                           email.error("")
-                           check_one = True
-                       else:
-                           email.error_active = True
-                           email.error("Email does not exist.")
-                   else:
-                       email.error_active = True
-                       email.error("Email does not contain '@gmail.com'")
-
-
-               check_two = False
-               if old_password.store_text == "":
-                   old_password.error_active = True
-                   old_password.error("Please enter password.")
-               else:
-                   old_password.error("")
-                   check_two = True
-
-
-               check_three = False
-               if check_one and check_two:  # Checks if the old password matches in the database
-                   salt = "5gz"
-                   database_password = old_password.store_text + salt
-                   hashed = hashlib.md5(database_password.encode()).hexdigest()
-                   if Check_Login(email.text, hashed):
-                       email.error("")
-                       check_three = True
-                   else:
-                       email.error_active = True
-                       email.error("Password is incorrect.")
-
-
-               if check_three:
-                   outcome, errorMessage = check_password(new_password.store_text)
-                   if (new_password.store_text == confirm_password.store_text) and outcome:
-                       new_password.error("")
-                       confirm_password.error("")
-                       salt = "5gz"
-                       database_password = new_password.store_text + salt
-                       hashed = hashlib.md5(database_password.encode()).hexdigest()
-                       SwapPassword(Get_ID(email.text), hashed)
-                       # Resets all input boxes and returns to option ui
-                       email.reset()
-                       old_password.reset()
-                       new_password.reset()
-                       confirm_password.reset()
-                       return 3
-                   else:
-                       if not outcome:
-                           txt = ""
-                           for i in errorMessage:
-                               txt += i + "\n"  # Adds new line for each error
-                           new_password.error_active = True
-                           new_password.error(txt)
-                       else:
-                           confirm_password.error_active = True
-                           confirm_password.error("Password does not match.")
-
-
-       return 6
-
-
+        return 6
 
 
 # Function to update the user interface based on the mode_ui
 def update_ui(mode_ui):
-   if mode_ui == 0:  # Main Menu UI
-       # Drawing main menu elements
-       window_surface.blit(title, title.get_rect(center=(500, 75)))
-       play_button.draw(window_surface)
-       leaderboards_button.draw(window_surface)
-       options_button.draw(window_surface)
-       quit_button.draw(window_surface)
+    if mode_ui == 0:  # Main Menu UI
+        # Drawing main menu elements
+        window_surface.blit(title, title.get_rect(center=(500, 75)))
+        play_button.draw(window_surface)
+        leaderboards_button.draw(window_surface)
+        options_button.draw(window_surface)
+        quit_button.draw(window_surface)
 
+        # Drawing user information
+        text_username.draw(window_surface)
+        text_id.draw(window_surface)
+        text_balance.draw(window_surface)
 
-       # Drawing user information
-       text_username.draw(window_surface)
-       text_id.draw(window_surface)
-       text_balance.draw(window_surface)
+    elif mode_ui == 1:  # Play Menu
+        # Drawing play menu elements
+        play_button.draw(window_surface)
+        return_button.draw(window_surface)
 
+        # Drawing player options
+        pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(200, 150, 150, 200), 0, 25)
+        pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(375, 150, 150, 200), 0, 25)
+        pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(550, 150, 150, 200), 0, 25)
+        pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(725, 150, 150, 200), 0, 25)
+        window_surface.blit(resize(pygame.image.load("Images/Sprites/Player/Idle/Left.png"), 200, 200), (175, 150))
+        Button(10, 390, "Template_Unselected", "Template_Selected").draw(window_surface)
+        Button(10, 465, "Template_Unselected", "Template_Selected").draw(window_surface)
 
-   elif mode_ui == 1:  # Play Menu
-       # Drawing play menu elements
-       play_button.draw(window_surface)
-       return_button.draw(window_surface)
+        # Drawing user information
+        text_username.draw(window_surface)
+        text_id.draw(window_surface)
+        text_balance.draw(window_surface)
 
+    elif mode_ui == 2:  # Leaderboards UI
+        # Drawing leaderboards elements
+        TextBox(150, 50, "Highest Balance", "", 26, "#FFFFFF").draw(window_surface)
+        TextBox(450, 50, "Most Kills", "", 26, "#FFFFFF").draw(window_surface)
+        TextBox(725, 50, "Time Alive", "", 26, "#FFFFFF").draw(window_surface)
 
-       # Drawing player options
-       pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(200, 150, 150, 200), 0, 25)
-       pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(375, 150, 150, 200), 0, 25)
-       pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(550, 150, 150, 200), 0, 25)
-       pygame.draw.rect(window_surface, "#FFFFFF", pygame.Rect(725, 150, 150, 200), 0, 25)
-       window_surface.blit(resize(pygame.image.load("Images/Sprites/Player/Idle/Left.png"), 200, 200), (175, 150))
-       Button(10, 390, "Template_Unselected", "Template_Selected").draw(window_surface)
-       Button(10, 465, "Template_Unselected", "Template_Selected").draw(window_surface)
+        balance = SelectTop10("Balance")
+        x, y = 150, 115
+        for i in range(10):
+            TextBox(x, y, f"{i + 1}. {balance[i][0]}", f"{balance[i][1]} δ", 26, "#FFFFFF").draw(window_surface)
+            y += 30
 
+        kills = SelectTop10("Kills")
+        x, y = 450, 115
+        for i in range(10):
+            TextBox(x, y, f"{i + 1}. {kills[i][0]}", f"{kills[i][1]}", 26, "#FFFFFF").draw(window_surface)
+            y += 30
 
-       # Drawing user information
-       text_username.draw(window_surface)
-       text_id.draw(window_surface)
-       text_balance.draw(window_surface)
+        time = SelectTop10("Time")
+        x, y = 725, 115
+        for i in range(10):
+            TextBox(x, y, f"{i + 1}. {time[i][0]}", f"{'{0:.1f}'.format(time[i][1])} min", 26, "#FFFFFF").draw(window_surface)
+            y += 30
 
+        return_button.draw(window_surface)
 
-   elif mode_ui == 2:  # Leaderboards UI
-       # Drawing leaderboards elements
-       TextBox(150, 50, "Highest Balance", "", 26, "#FFFFFF").draw(window_surface)
-       TextBox(450, 50, "Most Kills", "", 26, "#FFFFFF").draw(window_surface)
-       TextBox(725, 50, "Time Alive", "", 26, "#FFFFFF").draw(window_surface)
+    elif mode_ui == 3:  # Options UI
+        # Drawing options menu elements
+        register_button.draw(window_surface)
+        login_button.draw(window_surface)
+        reset_password.draw(window_surface)
+        return_button.draw(window_surface)
 
+    elif mode_ui == 4:  # Register UI
+        # Drawing registration elements
+        email_register.draw(window_surface)
+        username.draw(window_surface)
+        password_1_register.draw(window_surface)
+        password_2_register.draw(window_surface)
+        return_button.draw(window_surface)
+        submit_button.draw(window_surface)
 
-       # Drawing top players for each category
-       balance = SelectTop10("Balance")
-       x, y = 150, 115
-       for i in range(10):
-           TextBox(x, y, f"{i+1}. {balance[i][0]}", f"{balance[i][1]} δ", 26, "#FFFFFF").draw(window_surface)
-           y += 30
+    elif mode_ui == 5:  # Login UI
+        # Drawing login elements
+        email_login.draw(window_surface)
+        password_login.draw(window_surface)
+        return_button.draw(window_surface)
+        submit_button.draw(window_surface)
 
-       kills = SelectTop10("Kills")
-       x, y = 450, 115
-       for i in range(10):
-           TextBox(x, y, f"{i+1}. {kills[i][0]}", f"{kills[i][1]}", 26, "#FFFFFF").draw(window_surface)
-           y += 30
+    elif mode_ui == 6:  # Reset Password UI
+        # Drawing reset password elements
+        email.draw(window_surface)
+        old_password.draw(window_surface)
+        new_password.draw(window_surface)
+        confirm_password.draw(window_surface)
+        return_button.draw(window_surface)
+        submit_button.draw(window_surface)
 
-       time = SelectTop10("Time")
-       x, y = 725, 115
-       for i in range(10):
-           TextBox(x, y, f"{i+1}. {time[i][0]}", f"{'{0:.1f}'.format(time[i][1])} min", 26, "#FFFFFF").draw(window_surface)
-           y += 30
-
-       return_button.draw(window_surface)
-
-
-   elif mode_ui == 3:  # Options UI
-       # Drawing options menu elements
-       register_button.draw(window_surface)
-       login_button.draw(window_surface)
-       reset_password.draw(window_surface)
-       return_button.draw(window_surface)
-
-
-   elif mode_ui == 4:  # Register UI
-       # Drawing registration elements
-       email_register.draw(window_surface)
-       username.draw(window_surface)
-       password_1_register.draw(window_surface)
-       password_2_register.draw(window_surface)
-       return_button.draw(window_surface)
-       submit_button.draw(window_surface)
-
-
-   elif mode_ui == 5:  # Login UI
-       # Drawing login elements
-       email_login.draw(window_surface)
-       password_login.draw(window_surface)
-       return_button.draw(window_surface)
-       submit_button.draw(window_surface)
-
-
-   elif mode_ui == 6:  # Reset Password UI
-       # Drawing reset password elements
-       email.draw(window_surface)
-       old_password.draw(window_surface)
-       new_password.draw(window_surface)
-       confirm_password.draw(window_surface)
-       return_button.draw(window_surface)
-       submit_button.draw(window_surface)
-
-
+    return mode_ui
 
 
 # Function to handle the animation of the background image
 def animation(motion, transition, x, y):
-   # Set background rectangle position
-   background_rect = background.get_rect(center=(x, y))
+    # Set background rectangle position
+    background_rect = background.get_rect(center=(x, y))
 
+    if transition != 2:
+        if transition == 0 or transition == 1:  # Horizontal transition towards the centre
+            if x < 500:  # If x-coordinate is less than centre
+                x += 5
+            elif x > 500:  # If x-coordinate is greater than centre
+                x -= 5
+            else:  # When x-coordinate is at the centre
+                if not motion:  # If motion is False (moving up)
+                    y -= 0.5
+                    if y <= 240:  # When y-coordinate reaches upper limit
+                        motion = True
+                else:  # If motion is True (moving down)
+                    y += 0.5
+                    if y >= 260:  # When y-coordinate reaches lower limit
+                        motion = False
 
-   # Check transition type and perform animation accordingly
-   if transition == 0 or transition == 1:  # Horizontal transition towards the centre
-       if x < 500:  # If x-coordinate is less than centre
-           x += 5
-       elif x > 500:  # If x-coordinate is greater than centre
-           x -= 5
-       else:  # When x-coordinate is at the centre
-           if not motion:  # If motion is False (moving up)
-               y -= 0.5
-               if y <= 240:  # When y-coordinate reaches upper limit
-                   motion = True
-           else:  # If motion is True (moving down)
-               y += 0.5
-               if y >= 260:  # When y-coordinate reaches lower limit
-                   motion = False
+        else:  # Horizontal transition towards the right side
+            if x < 750:  # If x-coordinate is less than right-side limit
+                x += 5
+            elif x > 750:  # If x-coordinate is greater than right-side limit
+                x -= 5
+            else:  # When x-coordinate is at the right-side limit
+                if not motion:  # If motion is False (moving up)
+                    y -= 0.5
+                    if y <= 240:  # When y-coordinate reaches upper limit
+                        motion = True
+                else:  # If motion is True (moving down)
+                    y += 0.5
+                    if y >= 260:  # When y-coordinate reaches lower limit
+                        motion = False
 
-   else:  # Horizontal transition towards the right side
-       if x < 750:  # If x-coordinate is less than right-side limit
-           x += 5
-       elif x > 750:  # If x-coordinate is greater than right-side limit
-           x -= 5
-       else:  # When x-coordinate is at the right-side limit
-           if not motion:  # If motion is False (moving up)
-               y -= 0.5
-               if y <= 240:  # When y-coordinate reaches upper limit
-                   motion = True
-           else:  # If motion is True (moving down)
-               y += 0.5
-               if y >= 260:  # When y-coordinate reaches lower limit
-                   motion = False
-
-
-   # Draw background and update UI
-   window_surface.blit(background, background_rect)
-   update_ui(transition)
-
-   # Return updated motion and position coordinates
-   return motion, x, y
-
-
+    # Draw background and update UI
+    window_surface.blit(background, background_rect)
+    # Return updated motion and position coordinates
+    return transition, motion, x, y
 
 
 # Initialise pygame
 pygame.init()
 
-
 # Set window dimensions
 window_width, window_height = 1000, 500
-
 
 # Set window title and create window surface
 pygame.display.set_caption('Menu')
 window_surface = pygame.display.set_mode((window_width, window_height))
 
-
 # Load background image
 background = pygame.image.load("Images/Background/Red.png")
-
 
 # Set font for the title
 font = pygame.font.Font(None, 64)
 title = font.render("Last Man Standing", True, (255, 255, 255))
 
-
 # Details display
 text_username = TextBox(10, 15, "Username", "Guest", 25, "#FFFFFF")
 text_id = TextBox(10, 45, "ID", "null", 25, "#FFFFFF")
-text_balance = TextBox(850, 15, "Balance", "0 δ", 25, "#FFFFFF")
-
+text_balance = TextBox(850, 15, "Balance", 0, 25, "#FFFFFF")
 
 # Main Menu buttons
 play_button = Button(10, 315, "Play_Unselected", "Play_Selected")
@@ -480,16 +432,13 @@ leaderboards_button = Button(10, 390, "Leaderboards_Unselected", "Leaderboards_S
 options_button = Button(10, 465, "Options_Unselected", "Options_Selected")
 quit_button = Button(window_width - 150 - 10, 465, "Quit_Unselected", "Quit_Selected")
 
-
 # Options buttons
 register_button = Button(10, 465, "Register_Unselected", "Register_Selected")
 login_button = Button(175, 465, "Login_Unselected", "Login_Selected")
 reset_password = Button(175 + 165, 465, "Reset_Password_Unselected", "Reset_Password_Selected")
 
-
 # Common button
 return_button = Button(window_width - 150 - 10, 465, "Return_Unselected", "Return_Selected")
-
 
 # Register input boxes
 email_register = InputBox("Email:", 50, 250, 200, 25)
@@ -497,11 +446,9 @@ username = InputBox("Username:", 50, 300, 200, 25)
 password_1_register = InputBox("Password:", 50, 350, 200, 25, True)
 password_2_register = InputBox("Confirm Password:", 50, 400, 200, 25, True)
 
-
 # Login input boxes
 email_login = InputBox("Email:", 50, 250, 200, 25)
 password_login = InputBox("Password:", 50, 300, 200, 25, True)
-
 
 # Change Password input boxes
 email = InputBox("Email:", 50, 250, 200, 25)
@@ -509,25 +456,20 @@ old_password = InputBox("Old Password:", 50, 300, 200, 25, True)
 new_password = InputBox("New Password:", 50, 350, 200, 25, True)
 confirm_password = InputBox("Confirm Password:", 50, 400, 200, 25, True)
 
-
 # Submit button
 submit_button = Button(window_width - 300 - 25, 465, "Submit_Unselected", "Submit_Selected")
 
-
 data = False
 
-
 mode = 0
-
+player_id = "null"
 
 motion = False
 x, y = 500, 250
 background_rect = background.get_rect(center=(x, y))
 
-
 is_running = True
 clock = pygame.time.Clock()
-
 
 while is_running:
     for event in pygame.event.get():
@@ -544,17 +486,23 @@ while is_running:
         if mode == -1:
             game = MainGame(window_width, window_height)
             game.run()
-            SwapBalance(int(game.total.value))
-            SwapEnemies(int(game.enemies_defeated.value))
-            mode = 1
+            if player_id != "null":
+                SwapBalance(player_id, int(game.profit))
+                SwapKills(player_id, int(game.enemies_defeated.value))
+            else:
+                print(text_balance.value)
+                print(game.profit)
+                text_balance.update(game.profit + text_balance.value)
+            mode = 0
 
     if data:
         player_id = Get_ID(email_login.text)
         text_id.update(player_id)
         text_username.update(Get_Username(player_id))
-        text_balance.update(f"{Get_Balance(player_id)} δ")
+        text_balance.update(Get_Balance(player_id))
 
-    motion, x, y = animation(motion, mode, x, y)
+
+    mode, motion, x, y = animation(motion, mode, x, y)
+    mode = update_ui(mode)
     clock.tick(60)
     pygame.display.update()
-
