@@ -1,69 +1,85 @@
 import sys
-from Level import Level
-from Support import *
+from Level import Level  # Importing Level class from Level module
+from Support import *  # Importing everything from Support module
+
 
 class MainGame:
     def __init__(self, window_width, window_height):
-        pygame.init()
+        pygame.init()  # Initialising pygame
+        # Setting up the game window
         self.window_surface = pygame.display.set_mode((window_width, window_height))
-        pygame.display.set_caption('Game')
-        self.clock = pygame.time.Clock()
-        self.level = Level()
-        self.state = "Playing"
-        self.resume_button = Button((window_width/2)-75,(window_height/2)-100,"Resume_Unselected", "Resume_Selected")
-        self.return_button = Button((window_width/2)-75,(window_height/2)+100, "Return_Unselected", "Return_Selected")
-        self.quit_button = Button((window_width/2)-75,(window_height/2), "Quit_Unselected", "Quit_Selected")
+        pygame.display.set_caption('Game')  # Setting the window title
+        self.clock = pygame.time.Clock()  # Creating a clock object for controlling FPS
+        self.level = Level()  # Creating an instance of the Level class
+        self.state = "Playing"  # Setting initial game state to "Playing"
+
+        # Buttons for pause UI
+        self.resume_button = Button((window_width / 2) - 75, (window_height / 2) - 100, "Resume_Unselected",
+                                    "Resume_Selected")
+        self.return_button = Button((window_width / 2) - 75, (window_height / 2) + 100, "Return_Unselected",
+                                    "Return_Selected")
+        self.quit_button = Button((window_width / 2) - 75, (window_height / 2), "Quit_Unselected", "Quit_Selected")
         self.pause_rect = pygame.Rect((window_width - 250) / 2, (window_height - 300) / 2, 250, 300)
-        self.enemies_defeated = TextBox(400, (window_height/2)-100, "Number of enemies defeated", "", 20, "#FFFFFF")
-        self.time_survived = TextBox(400, (window_height/2)-50, "Survival Time", "", 20, "#FFFFFF")
-        self.total = TextBox(400, (window_height/2), "Total", "0 δ", 20, "#FFFFFF")
+
+        # Results for game over
+        self.enemies_defeated = TextBox(400, (window_height / 2) - 100, "Number of enemies defeated", "", 20, "#FFFFFF")
+        self.time_survived = TextBox(400, (window_height / 2) - 50, "Survival Time", "", 20, "#FFFFFF")
+        self.total = TextBox(400, (window_height / 2), "Total", "0 δ", 20, "#FFFFFF")
+
+        self.profit = 0
 
     def run(self):
         while True:
             delta_time = self.clock.tick() / 1000
-            for event in pygame.event.get():
-                mouse_pos = pygame.mouse.get_pos()
-                keys = pygame.key.get_pressed()
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                if self.state == "Paused":
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if self.quit_button.is_clicked(mouse_pos):
-                            pygame.quit()
-                            sys.exit()
-                        elif self.resume_button.is_clicked(mouse_pos):
-                            self.state = "Playing"
-                        elif self.return_button.is_clicked(mouse_pos):
-                            return
+            for event in pygame.event.get():  # Handling events
+                mouse_pos = pygame.mouse.get_pos()  # Getting mouse position
+                keys = pygame.key.get_pressed()  # Getting pressed keys
+                if event.type == pygame.QUIT:  # If the user closes the window
+                    pygame.quit()  # Quit pygame
+                    sys.exit()  # Exit the program
+                if self.state == "Paused":  # If the game is paused
+                    if event.type == pygame.MOUSEBUTTONDOWN:  # If mouse button is clicked
+                        if self.quit_button.is_clicked(mouse_pos):  # If quit button is clicked
+                            pygame.quit()  # Quit pygame
+                            sys.exit()  # Exit the program
+                        elif self.resume_button.is_clicked(mouse_pos):  # If resume button is clicked
+                            self.state = "Playing"  # Set game state to "Playing"
+                        elif self.return_button.is_clicked(mouse_pos):  # If return button is clicked
+                            return  # Return to main menu
 
-                elif self.state == "Game Over":
-                    if event.type == pygame.MOUSEBUTTONDOWN:
-                        if self.return_button.is_clicked(mouse_pos):
-                            return
 
-                if keys[pygame.K_ESCAPE]:
-                    self.state = "Paused"
+                elif self.state == "Game Over":  # If the game is over
+                    if event.type == pygame.MOUSEBUTTONDOWN:  # If mouse button is clicked
+                        if self.return_button.is_clicked(mouse_pos):  # If return button is clicked
+                            return  # Return to main menu
 
-            if self.state == "Playing":
-                self.level.run(delta_time)
+                if keys[pygame.K_ESCAPE]:  # If ESC key is pressed
+                    self.state = "Paused"  # Set game state to "Paused"
 
-                if not self.level.get_active():
-                    self.state = "Game Over"
+            if self.state == "Playing":  # If the game is playing
+                self.level.run(delta_time)  # Run the game level
 
-            elif self.state == "Paused":
-                pygame.draw.rect(self.window_surface, "#262626", self.pause_rect, 0,25)
+                if not self.level.get_active():  # If the level is not active
+                    self.state = "Game Over"  # Set game state to "Game Over"
+
+
+            elif self.state == "Paused":  # If the game is paused
+                # Draw pause UI
+                pygame.draw.rect(self.window_surface, "#262626", self.pause_rect, 0, 25)
                 self.resume_button.draw(self.window_surface)
                 self.return_button.draw(self.window_surface)
                 self.quit_button.draw(self.window_surface)
 
-            elif self.state == "Game Over":
+
+            elif self.state == "Game Over":  # If the game is over
+                # Draw game over UI
                 pygame.draw.rect(self.window_surface, "#262626", self.pause_rect, 0, 25)
                 x = self.level.player.enemies_defeated
                 self.enemies_defeated.update(str(x))
                 y = self.level.timer.total_seconds - self.level.timer.remaining_seconds
                 self.time_survived.update(f"{y // 60:02d}:{y % 60:02d}")
-                self.total.update(f"{str(x + y)} δ")
+                self.profit = (x * 10) + y
+                self.total.update(self.profit)
                 self.enemies_defeated.draw(self.window_surface)
                 self.time_survived.draw(self.window_surface)
                 self.total.draw(self.window_surface)
