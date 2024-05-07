@@ -36,6 +36,9 @@ class MainGame:
                 if event.type == pygame.QUIT:  # If the user closes the window
                     pygame.quit()  # Quit pygame
                     sys.exit()  # Exit the program
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    self.level.player.attack = True
+
                 if self.state == "Paused":  # If the game is paused
                     if event.type == pygame.MOUSEBUTTONDOWN:  # If mouse button is clicked
                         if self.quit_button.is_clicked(mouse_pos):  # If quit button is clicked
@@ -44,7 +47,7 @@ class MainGame:
                         elif self.resume_button.is_clicked(mouse_pos):  # If resume button is clicked
                             self.state = "Playing"  # Set game state to "Playing"
                         elif self.return_button.is_clicked(mouse_pos):  # If return button is clicked
-                            return  # Return to main menu
+                            self.state = "Game Over" # Set game state to "Game Over"
 
 
                 elif self.state == "Game Over":  # If the game is over
@@ -98,13 +101,15 @@ class Level:
         # Setting the level to active
         self.active = True
         # Setting up the level
+        self.enemies = []
         self.set_up()
 
     def set_up(self):
         # Creating player object and adding it to all_sprites group
         self.player = Player((500, 250), self.all_sprites)
         # Creating enemy object and adding it to all_sprites group
-        self.enemy = Enemy((r.randint(0, 1000), r.randint(0, 500)), self.player.rect.center, self.all_sprites)
+        for i in range(20):
+            self.enemies.append(Enemy((r.randint(0, 1000), r.randint(0, 500)), self.player.rect.center, self.all_sprites))
         # Creating timer object with 10 minute duration
         self.timer = Timer(10)
 
@@ -113,28 +118,31 @@ class Level:
         return self.active
 
     def run(self, delta_time):
-        # Checking collision between enemy and player
-        if self.enemy.rect.colliderect(self.player.hitBox_rect):
-            self.player.get_damage(10)  # Player gets damaged if colliding with enemy
+        for enemy in self.enemies.copy():
+            # Checking collision between enemy and player
+            if enemy.rect.colliderect(self.player.hitBox_rect):
+                self.player.get_damage(10)  # Player gets damaged if colliding with enemy
 
-        # Checks if the player is attacking
-        if self.player.attack:
-            if self.enemy.rect.colliderect(self.player.attack_rect): # If the enemy is within attack zone
-                self.enemy.get_damage(100) # Deals 100 damage
-            self.player.attack = False # Sets attack to false
+            # Checks if the player is attacking
+            if self.player.attack:
+                if enemy.rect.colliderect(self.player.attack_rect): # If the enemy is within attack zone
+                    enemy.get_damage(100) # Deals 100 damage
+                self.player.attack = False # Sets attack to false
+
+            if enemy.target_health <= 0:
+                enemy.kill()  # Deletes the enemy
+                self.enemies.remove(enemy) # Remove enemy from list of enemies
+                self.player.enemies_defeated += 1  # Add count to the variable from player
+                # Generates new enemy at random position
+                self.enemies.append(Enemy((r.randint(0, 1000), r.randint(0, 150)), self.player.rect.center, self.all_sprites))
+
+            # Updating enemy's position based on player's position
+            enemy.update_pos(self.player.hitBox_rect.center)
 
         # Checking if player's health is below or equal to zero
         if self.player.current_health <= 0:
             self.active = False  # Stops the level
 
-        if self.enemy.target_health <= 0:
-            self.enemy.kill() # Deletes the enemy
-            self.player.enemies_defeated += 1 # Add count to the variable from player
-            # Generates new enemy at random position
-            self.enemy = Enemy((r.randint(0, 1000), r.randint(0, 150)), self.player.rect.center, self.all_sprites)
-
-        # Updating enemy's position based on player's position
-        self.enemy.update_pos(self.player.hitBox_rect.center)
         # Drawing background image
         self.display_surface.blit(self.background, (0, 0))
         # Drawing all sprites on the display surface
@@ -306,10 +314,6 @@ class Player(pygame.sprite.Sprite):
             self.status = "Right"
         else:
             self.direction.x = 0
-
-        for event in pygame.event.get():
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                self.attack = True
 
     def move(self, delta_time):
         # Normalise direction vector if its magnitude is greater than 0
