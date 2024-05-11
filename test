@@ -80,7 +80,7 @@ class MainGame:
                 self.enemies_defeated.update(str(x))
                 y = self.level.timer.total_seconds - self.level.timer.remaining_seconds
                 self.time_survived.update(f"{y // 60:02d}:{y % 60:02d}")
-                self.total.update(f"{str(x + y)} δ")
+                self.total.update(f"{str(x + y)}")
                 self.profit = x + y
                 self.enemies_defeated.draw(self.window_surface)
                 self.time_survived.draw(self.window_surface)
@@ -93,6 +93,7 @@ class MainGame:
 class Level:
     def __init__(self):
         # Loading background image
+        self.boss = None
         self.background = pygame.image.load("Images/Background/Desert.png")
         # Getting display surface
         self.display_surface = pygame.display.get_surface()
@@ -103,6 +104,7 @@ class Level:
         # Setting up the level
         self.enemies = []
         self.set_up()
+        self.spawn = False
 
     def set_up(self):
         # Creating player object and adding it to all_sprites group
@@ -113,11 +115,13 @@ class Level:
         # Creating timer object with 10 minute duration
         self.timer = Timer(10)
 
+
     def get_active(self):
         # Return the active status of the level to game.py
         return self.active
 
     def run(self, delta_time):
+
         for enemy in self.enemies.copy():
             # Checking collision between enemy and player
             if enemy.rect.colliderect(self.player.hitBox_rect):
@@ -132,12 +136,36 @@ class Level:
             if enemy.target_health <= 0:
                 enemy.kill()  # Deletes the enemy
                 self.enemies.remove(enemy) # Remove enemy from list of enemies
+                self.player.get_health(10)
                 self.player.enemies_defeated += 1  # Add count to the variable from player
                 # Generates new enemy at random position
                 self.enemies.append(Enemy((r.randint(0, 1000), r.randint(0, 150)), self.player.rect.center, self.all_sprites))
 
             # Updating enemy's position based on player's position
             enemy.update_pos(self.player.hitBox_rect.center)
+
+        if self.timer.remaining_seconds == 600 and self.spawn == False:
+            self.boss = Boss((500, 250), self.player.rect.center, self.all_sprites)
+            self.spawn = True
+
+        elif self.boss != None:
+            # Checking collision between enemy and player
+            if self.boss.rect.colliderect(self.player.hitBox_rect):
+                self.player.get_damage(50)  # Player gets damaged if colliding with enemy
+
+            # Checks if the player is attacking
+            if self.player.attack:
+                if self.boss.rect.colliderect(self.player.attack_rect):  # If the enemy is within attack zone
+                    self.boss.get_damage(10)  # Deals 100 damage
+                self.player.attack = False  # Sets attack to false
+
+            if self.boss.target_health <= 0:
+                self.boss.kill()  # Deletes the enemy
+                self.player.get_health(100)
+                self.player.enemies_defeated += 1  # Add count to the variable from player
+
+            # Updating boss's position based on player's position
+            self.boss.update_pos(self.player.hitBox_rect.center)
 
         # Checking if player's health is below or equal to zero
         if self.player.current_health <= 0:
@@ -242,7 +270,7 @@ class Player(pygame.sprite.Sprite):
         health_bar_width = int(self.current_health / self.health_ratio)
         health_bar = pygame.Rect(10, 10, health_bar_width, 25)
         # Create transition bar next to health bar
-        transition_bar = pygame.Rect(health_bar.right, 45, transition_width, 25)
+        transition_bar = pygame.Rect(health_bar.right, health_bar.y, transition_width, 25)
 
         # Draw health bar and transition bar on display surface
         pygame.draw.rect(self.display_surface, (255, 0, 0), health_bar)  # Draw health bar
@@ -429,6 +457,45 @@ class Enemy(pygame.sprite.Sprite):
     def update(self, delta_time):
         self.move(delta_time)
 
+class Boss(pygame.sprite.Sprite):
+    def __init__(self, pos, player_pos, group):
+        super().__init__(group)
+        self.image = pygame.Surface((50, 50))  # Replace this with your actual enemy image
+        self.image.fill((0, 0, 255))  # Replace this with your desired colour or image
+        self.rect = self.image.get_rect()
+        self.rect.center = pos
+        self.direction = pygame.math.Vector2()
+        self.pos = pygame.math.Vector2(self.rect.center)
+        self.speed = 50
+        self.player_pos = player_pos
+
+        self.target_health = 100
+
+    def get_damage(self, amount):
+        # Reduce target health by the specified amount
+        if self.target_health > 0:
+            self.target_health -= amount
+        # Ensure health doesn't go below 0
+        if self.target_health < 0:
+            self.target_health = 0
+
+    def update_pos(self, player_pos):
+        self.player_pos = player_pos
+
+    def move(self, delta_time):
+        # Calculate direction vector from enemy to player
+        direction_to_player = pygame.math.Vector2(self.player_pos) - self.pos
+
+        # Normalise the direction vector
+        if direction_to_player.length() > 0:
+            self.direction = direction_to_player.normalize()
+
+        # Update enemy's position based on direction vector and speed
+        self.pos += self.direction * self.speed * delta_time
+        self.rect.center = self.pos
+
+    def update(self, delta_time):
+        self.move(delta_time)
 
 game = MainGame(1000, 500)
 game.run()
